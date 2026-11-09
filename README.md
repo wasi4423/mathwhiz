@@ -130,16 +130,23 @@ Alternative: run `mvn clean package` and copy `target/MathWhiz.war` into Tomcat'
 ## Application Screenshots
 
 ### Welcome Page
-![Welcome Page](screenshots/home.png)
+![Welcome Page]
+<img width="1197" height="623" alt="Screenshot 2026-11-09 162525" src="https://github.com/user-attachments/assets/7285fb95-6416-43f7-95f6-29c2f0822999" />
+
 
 ### Game Page
-![Game Page](screenshots/game.png)
+![Game Page]
+<img width="1146" height="967" alt="Screenshot 2026-11-09 162559" src="https://github.com/user-attachments/assets/757893f5-90ca-4643-980d-835d10b0dbac" />
+
 
 ### Result Page
-![Result Page](screenshots/result.png)
+![Result Page]
+<img width="956" height="562" alt="Screenshot 2026-11-09 162728" src="https://github.com/user-attachments/assets/e13902e3-5f9d-4a4f-8739-5dd9464d76f3" />
 
 ### Leaderboard
-![Leaderboard](screenshots/leaderboard.png)
+![Leaderboard]
+
+<img width="1483" height="687" alt="Screenshot 2026-11-09 162515" src="https://github.com/user-attachments/assets/0829fa30-7ed0-4dfd-8760-b9df083cb6de" />
 
 ## GitHub Project Directory
 https://github.com/username/repository/tree/main/MathWhiz
