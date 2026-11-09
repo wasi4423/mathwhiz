@@ -1,21 +1,47 @@
 # WASI – MATH WHIZ
 
-A web-based math game built with Java Servlet, JSP and JDBC. Players answer four math questions (prime, modulus, two trigonometry). Every answer is checked by real Java methods, and scores are saved in MySQL and shown on a Top 10 leaderboard.
+A web-based math game built with **Java Servlet, JSP and JDBC**. Players enter a name, answer four math questions (prime, modulus, two trigonometry), and see their score. Every answer is checked by real Java methods (nothing is stored as a fixed answer), and each game is saved in MySQL and ranked on a **Top 10 leaderboard**.
+
+Special feature: **every question has its own difficulty**, and the marks change with it: **mark = question mark x difficulty multiplier**.
+
+---
+
+## Table of Contents
+1. [Project Objectives](#project-objectives)
+2. [Technologies Used](#technologies-used)
+3. [Software Requirements](#software-requirements)
+4. [Project Structure](#project-structure)
+5. [How the Game Works](#how-the-game-works)
+6. [Game Rules and Scoring System](#game-rules-and-scoring-system)
+7. [Database Configuration](#database-configuration)
+8. [Database Creation SQL](#database-creation-sql)
+9. [Steps to Run the Application](#steps-to-run-the-application)
+10. [Source Code](#source-code)
+11. [Testing and Validation](#testing-and-validation)
+12. [Troubleshooting](#troubleshooting)
+13. [Application Screenshots](#application-screenshots)
+14. [GitHub Project Directory](#github-project-directory)
+
+---
 
 ## Project Objectives
-- Build reusable Java methods for prime, modulus and trigonometry
-- Handle requests and responses with a Servlet and JSP pages
-- Connect to MySQL using JDBC and `PreparedStatement`
-- Store, sort and display scores (Top 10 leaderboard)
-- Apply per-question difficulty marking: **mark = question mark × difficulty multiplier**
+- Build reusable Java methods for prime check, modulus and trigonometry
+- Use a Servlet and JSP pages to handle requests, sessions and responses
+- Connect to MySQL with JDBC and `PreparedStatement`
+- Save player name, score, difficulty and date/time
+- Retrieve, sort and display the Top 10 scores
+- Apply per-question difficulty marking (mark = question mark x difficulty multiplier)
+- Document and submit the project on GitHub
 
 ## Technologies Used
-- Java 17
-- Jakarta Servlet 6 / JSP / JSTL
-- JDBC, MySQL 8.0
-- Maven
-- Apache Tomcat 11
-- IntelliJ IDEA
+| Layer | Technology |
+|---|---|
+| Language | Java 17 |
+| Web | Jakarta Servlet 6, JSP, JSTL |
+| Database | MySQL 8.0, JDBC (`PreparedStatement`) |
+| Build | Maven (WAR packaging) |
+| Server | Apache Tomcat 11 |
+| IDE | IntelliJ IDEA |
 
 ## Software Requirements
 - JDK 17 or newer
@@ -27,13 +53,23 @@ A web-based math game built with Java Servlet, JSP and JDBC. Players answer four
 ## Project Structure
 ```
 MathWhiz/
+├── pom.xml
 ├── src/main/java/
-│   ├── controller/GameServlet.java
-│   ├── model/ (Difficulty, Question, QuestionResult, GameScore)
-│   ├── service/ (MathService, QuestionFactory)
-│   └── dao/ScoreDAO.java
+│   ├── controller/GameServlet.java      # /start, /submit, /leaderboard
+│   ├── model/
+│   │   ├── Difficulty.java              # EASY x1, NORMAL x2, HARD x3
+│   │   ├── Question.java                # one question + its marks + checking
+│   │   ├── QuestionResult.java          # player's answer for one question
+│   │   └── GameScore.java               # one row of game_scores
+│   ├── service/
+│   │   ├── MathService.java             # isPrime, calculateMod, sin/cos/tan
+│   │   └── QuestionFactory.java         # generates 4 random questions
+│   └── dao/ScoreDAO.java                # JDBC insert + top 10 select
 ├── src/main/webapp/
-│   ├── index.jsp, game.jsp, result.jsp, leaderboard.jsp
+│   ├── index.jsp                        # Screen 1: Welcome
+│   ├── game.jsp                         # Screen 2: Game
+│   ├── result.jsp                       # Screen 3: Result
+│   ├── leaderboard.jsp                  # Screen 4: Leaderboard
 │   └── css/style.css
 ├── src/test/java/service/MathServiceTest.java
 ├── database/math_whiz_db.sql
@@ -41,46 +77,75 @@ MathWhiz/
 └── README.md
 ```
 
+## How the Game Works
+1. **Welcome page (`index.jsp`)**: player types a name and clicks *Start Game* (POST `/start`).
+2. **`GameServlet.start`** validates the name, asks `QuestionFactory` for four questions (each with a random difficulty), keeps them in the session, and forwards to `game.jsp`.
+3. **Game page (`game.jsp`)**: shows Q1 to Q4 with difficulty tag and marks (for example `3 x 3 = 9 marks`). Player fills the answers and clicks *Submit Answers* (POST `/submit`).
+4. **`GameServlet.submit`** reads the answers, checks each one through `Question.isCorrect()` (which calls the `MathService` methods), adds up the marks, and saves the game with `ScoreDAO.save()`.
+5. **Result page (`result.jsp`)** shows the player name, final score, correct answers and marks per question.
+6. **Leaderboard (`leaderboard.jsp`)**: GET `/leaderboard` runs `ScoreDAO.top10()` and shows the best 10 games.
+
 ## Game Rules and Scoring System
 
 | Question | Area | Base Mark |
 |---|---|---|
 | Q1 | Prime Number (1 = prime, 0 = not prime) | 2 |
-| Q2 | Modulus (integers only, divisor ≠ 0) | 2 |
+| Q2 | Modulus (integers only, divisor not zero) | 2 |
 | Q3 | Trigonometry (sin / cos / tan, degrees) | 3 |
 | Q4 | Trigonometry (sin / cos / tan, degrees) | 3 |
 
-Each question gets its own random difficulty:
+### Difficulty multipliers (each question gets its own)
+| Difficulty | Multiplier | Prime range | Modulus | Trig angles |
+|---|---|---|---|---|
+| EASY | x1 | 2 to 30 | small positive numbers | 0, 30, 60, 90 (sin / cos only) |
+| NORMAL | x2 | 30 to 200 | bigger positive numbers | 0, 30, 45, 60, 90, 120, 135, 150, 180 (sin / cos / tan) |
+| HARD | x3 | 200 to 2000 | can be negative | any multiple of 15 up to 360 (sin / cos / tan) |
 
-| Difficulty | Multiplier |
-|---|---|
-| EASY | ×1 |
-| NORMAL | ×2 |
-| HARD | ×3 |
+### Marking formula
+```
+mark of a question = base mark x difficulty multiplier
+total score        = sum of marks of the correctly answered questions
+max score          = sum of marks of all four questions (changes per game)
+```
 
-**Mark of a question = question mark × difficulty multiplier.**
-Example: Q3 (3 marks) on HARD = 3 × 3 = 9 marks. The maximum score changes per game (10 to 30) and is saved as `max_score`.
+### Example
+| Question | Base | Difficulty | Marks if correct |
+|---|---|---|---|
+| Q1 Prime | 2 | HARD (x3) | 2 x 3 = 6 |
+| Q2 Modulus | 2 | EASY (x1) | 2 x 1 = 2 |
+| Q3 Trig | 3 | NORMAL (x2) | 3 x 2 = 6 |
+| Q4 Trig | 3 | HARD (x3) | 3 x 3 = 9 |
+| **Max score** | | | **23** |
 
-Rules:
+If the player answers Q1 and Q4 correctly, the score is 6 + 9 = 15 / 23. The smallest possible max score is 10 (all EASY) and the largest is 30 (all HARD).
+
+### Other rules
 - Numbers less than 2 are not prime.
-- Modulus divisor must not be zero (validation error).
-- Trigonometry takes degrees and converts to radians before using `Math.sin()`, `Math.cos()`, `Math.tan()`.
+- The modulus divisor must not be zero (`calculateMod` throws a validation error).
+- Trigonometry takes degrees and converts them to radians before using `Math.sin()`, `Math.cos()`, `Math.tan()`.
 - Decimal answers are compared with a tolerance of 0.01 (round to 2 decimals).
-- Tangent at 90° and 270° is undefined: type `undefined`.
-- Harder questions use larger numbers, negative operands and more angles.
+- Tangent at 90 and 270 degrees is undefined: the player types `undefined`.
+- Java `%` is used for modulus, so the sign follows the first number (`-17 % 5 = -2`).
+- The `difficulty` column stores all four difficulties, for example `EASY,HARD,NORMAL,NORMAL`.
 
 ## Database Configuration
-Default settings in `src/main/java/dao/ScoreDAO.java`:
+Settings are in `src/main/java/dao/ScoreDAO.java`:
 
 | Setting | Default |
 |---|---|
 | URL | `jdbc:mysql://localhost:3306/math_whiz_db` |
 | User | `root` |
-| Password | set `PASS` in `ScoreDAO.java` to your MySQL root password |
+| Password | empty. Set `PASS` in `ScoreDAO.java` to your own MySQL password |
 
-You can also use environment variables: `MW_DB_URL`, `MW_DB_USER`, `MW_DB_PASS`.
+```java
+private static final String PASS = env("MW_DB_PASS", "your_password");
+```
+
+You can also use the environment variables `MW_DB_URL`, `MW_DB_USER` and `MW_DB_PASS` instead of editing the code.
 
 ## Database Creation SQL
+File: `database/math_whiz_db.sql`
+
 ```sql
 CREATE DATABASE IF NOT EXISTS math_whiz_db;
 USE math_whiz_db;
@@ -94,9 +159,38 @@ CREATE TABLE IF NOT EXISTS game_scores (
     played_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
-Source Code
-pom.xml
-xml
+
+| Column | Type | Meaning |
+|---|---|---|
+| id | INT, PK, auto increment | row id |
+| player_name | VARCHAR(100) | player name |
+| score | INT | marks earned |
+| max_score | INT | maximum marks of that game |
+| difficulty | VARCHAR(50) | difficulty of Q1 to Q4 |
+| played_at | TIMESTAMP | date and time of the game |
+
+Leaderboard query (highest score first, earlier time wins a tie):
+```sql
+SELECT * FROM game_scores ORDER BY score DESC, played_at ASC LIMIT 10;
+```
+
+## Steps to Run the Application
+1. Clone or download this repository.
+2. Create the database: run `database/math_whiz_db.sql` in MySQL (Command Line Client, Workbench or phpMyAdmin).
+3. Open the `MathWhiz` folder in IntelliJ IDEA as a Maven project and wait for the dependencies to download.
+4. Set the project JDK to 17 or newer (*File, Project Structure, Project*).
+5. Set your MySQL password in `ScoreDAO.java`.
+6. Add a Tomcat run configuration: *Run, Edit Configurations, +, Tomcat Server, Local*. Choose your Tomcat 11 folder. On the *Deployment* tab add the artifact `MathWhiz:war exploded` and set the application context to `/MathWhiz`.
+7. Click Run and open `http://localhost:8080/MathWhiz/`.
+
+Alternative without IntelliJ: run `mvn clean package` and copy `target/MathWhiz.war` into Tomcat's `webapps` folder.
+
+---
+
+## Source Code
+
+### pom.xml
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -155,11 +249,12 @@ xml
     </plugins>
   </build>
 </project>
-MathService.java (math methods)
+```
 
-The required methods isPrime, calculateMod, calculateSin, calculateCos, calculateTan.
+### MathService.java (math methods)
+The required methods `isPrime`, `calculateMod`, `calculateSin`, `calculateCos`, `calculateTan`.
 
-java
+```java
 package service;
 
 public class MathService {
@@ -197,8 +292,11 @@ public class MathService {
         return Math.abs(given - expected) <= TOLERANCE;
     }
 }
-Difficulty.java (multipliers)
-java
+```
+
+### Difficulty.java (multipliers)
+
+```java
 package model;
 
 public enum Difficulty {
@@ -210,11 +308,12 @@ public enum Difficulty {
 
     public int getMultiplier() { return multiplier; }
 }
-Question.java (marks formula and answer checking)
+```
 
-getMarks() is the marking formula. isCorrect() calls the MathService methods to check the answer.
+### Question.java (marks formula and answer checking)
+`getMarks()` is the marking formula. `isCorrect()` calls the `MathService` methods to check the answer.
 
-java
+```java
 package model;
 
 import service.MathService;
@@ -294,8 +393,11 @@ public class Question {
         }
     }
 }
-QuestionResult.java
-java
+```
+
+### QuestionResult.java
+
+```java
 package model;
 
 public class QuestionResult {
@@ -314,8 +416,11 @@ public class QuestionResult {
     public boolean isCorrect() { return correct; }
     public int getEarned() { return correct ? question.getMarks() : 0; }
 }
-GameScore.java
-java
+```
+
+### GameScore.java
+
+```java
 package model;
 
 import java.sql.Timestamp;
@@ -350,8 +455,11 @@ public class GameScore {
     public Timestamp getPlayedAt() { return playedAt; }
     public void setPlayedAt(Timestamp playedAt) { this.playedAt = playedAt; }
 }
-QuestionFactory.java (random questions with individual difficulty)
-java
+```
+
+### QuestionFactory.java (random questions with individual difficulty)
+
+```java
 package service;
 
 import model.Difficulty;
@@ -429,8 +537,11 @@ public class QuestionFactory {
         return new Question(t, 3, d, angle, 0);
     }
 }
-ScoreDAO.java (JDBC)
-java
+```
+
+### ScoreDAO.java (JDBC)
+
+```java
 package dao;
 
 import model.GameScore;
@@ -494,8 +605,11 @@ public class ScoreDAO {
         return list;
     }
 }
-GameServlet.java (controller)
-java
+```
+
+### GameServlet.java (controller)
+
+```java
 package controller;
 
 import dao.ScoreDAO;
@@ -587,8 +701,11 @@ public class GameServlet extends HttpServlet {
         req.getRequestDispatcher("/result.jsp").forward(req, resp);
     }
 }
-index.jsp (Welcome page)
-jsp
+```
+
+### index.jsp (Welcome page)
+
+```jsp
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!DOCTYPE html>
@@ -612,8 +729,11 @@ jsp
 </div>
 </body>
 </html>
-game.jsp (Game page)
-jsp
+```
+
+### game.jsp (Game page)
+
+```jsp
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!DOCTYPE html>
@@ -644,8 +764,11 @@ jsp
 </div>
 </body>
 </html>
-result.jsp (Result page)
-jsp
+```
+
+### result.jsp (Result page)
+
+```jsp
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!DOCTYPE html>
@@ -676,37 +799,127 @@ jsp
 </div>
 </body>
 </html>
-Leaderboard query:
-```sql
-SELECT * FROM game_scores ORDER BY score DESC, played_at ASC LIMIT 10;
 ```
 
-## Steps to Run the Application
-1. Clone or download this repository.
-2. Run `database/math_whiz_db.sql` in MySQL.
-3. Open the `MathWhiz` folder in IntelliJ IDEA as a Maven project and wait for dependencies to download.
-4. Set the project JDK to 17 or newer.
-5. Set your MySQL password in `ScoreDAO.java`.
-6. Add a **Tomcat 11 Local** run configuration with artifact `MathWhiz:war exploded` and application context `/MathWhiz`.
-7. Run it and open `http://localhost:8080/MathWhiz/`.
+### leaderboard.jsp (Top 10)
 
-Alternative: run `mvn clean package` and copy `target/MathWhiz.war` into Tomcat's `webapps` folder.
+```jsp
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>WASI – MATH WHIZ | Leaderboard</title>
+  <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
+</head>
+<body>
+<div class="card wide">
+  <h1>Top 10 Leaderboard</h1>
+  <table>
+    <tr><th>#</th><th>Player</th><th>Score</th><th>Difficulty (Q1-Q4)</th><th>Date/Time</th></tr>
+    <c:forEach var="g" items="${scores}" varStatus="s">
+      <tr>
+        <td>${s.count}</td>
+        <td><c:out value="${g.playerName}"/></td>
+        <td>${g.score} / ${g.maxScore}</td>
+        <td>${g.difficulty}</td>
+        <td><fmt:formatDate value="${g.playedAt}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
+      </tr>
+    </c:forEach>
+    <c:if test="${empty scores}"><tr><td colspan="5">No scores yet.</td></tr></c:if>
+  </table>
+  <a href="${pageContext.request.contextPath}/">Play Game</a>
+</div>
+</body>
+</html>
+```
 
-## Testing
-`MathServiceTest` checks the math methods and the marking rule.
+### MathServiceTest.java (tests)
+
+```java
+package service;
+
+import model.Difficulty;
+import model.Question;
+import model.Question.Type;
+
+public class MathServiceTest {
+
+    static int fail = 0;
+
+    static void check(String name, boolean ok) {
+        System.out.println((ok ? "PASS " : "FAIL ") + name);
+        if (!ok) fail++;
+    }
+
+    public static void main(String[] args) {
+        check("prime 7 -> 1", MathService.isPrime(7) == 1);
+        check("prime 8 -> 0", MathService.isPrime(8) == 0);
+        check("prime 1 -> 0", MathService.isPrime(1) == 0);
+        check("prime -5 -> 0", MathService.isPrime(-5) == 0);
+        check("17 % 5 -> 2", MathService.calculateMod(17, 5) == 2);
+        check("-17 % 5 -> -2", MathService.calculateMod(-17, 5) == -2);
+        check("17 % -5 -> 2", MathService.calculateMod(17, -5) == 2);
+        boolean thrown = false;
+        try { MathService.calculateMod(5, 0); } catch (IllegalArgumentException e) { thrown = true; }
+        check("divisor 0 -> validation error", thrown);
+        check("sin 30 -> 0.5", MathService.isClose(MathService.calculateSin(30), 0.5));
+        check("cos 60 -> 0.5", MathService.isClose(MathService.calculateCos(60), 0.5));
+        check("tan 45 -> 1.0", MathService.isClose(MathService.calculateTan(45), 1.0));
+        check("tan 90 -> undefined", Double.isNaN(MathService.calculateTan(90)));
+
+        // marking: mark = question mark * difficulty multiplier
+        check("prime HARD = 2*3 = 6", new Question(Type.PRIME, 2, Difficulty.HARD, 7, 0).getMarks() == 6);
+        check("trig NORMAL = 3*2 = 6", new Question(Type.SIN, 3, Difficulty.NORMAL, 30, 0).getMarks() == 6);
+        check("trig EASY = 3*1 = 3", new Question(Type.COS, 3, Difficulty.EASY, 60, 0).getMarks() == 3);
+        check("answer check prime", new Question(Type.PRIME, 2, Difficulty.EASY, 7, 0).isCorrect("1"));
+        check("wrong answer rejected", !new Question(Type.MOD, 2, Difficulty.EASY, 17, 5).isCorrect("3"));
+        check("tan 90 'undefined' accepted", new Question(Type.TAN, 3, Difficulty.HARD, 90, 0).isCorrect("undefined"));
+        check("non-numeric rejected", !new Question(Type.SIN, 3, Difficulty.EASY, 30, 0).isCorrect("abc"));
+
+        System.out.println(fail == 0 ? "ALL PASSED" : fail + " FAILED");
+    }
+}
+```
+
+---
+
+## Testing and Validation
+
+`MathServiceTest` runs these checks. Run it from IntelliJ (right click, *Run MathServiceTest.main()*); it prints `PASS` or `FAIL` for each case.
 
 | Test Case | Expected Result |
 |---|---|
-| Prime 7 | 1 |
-| Prime 8 | 0 |
-| Prime 1 | 0 |
-| 17 % 5 | 2 |
-| sin 30° | 0.5 |
-| cos 60° | 0.5 |
-| tan 45° | 1.0 |
-| Divisor 0 | Validation error |
-| All answers correct | Maximum marks for the game |
-| Wrong answers | Marks for those questions not awarded |
+| Prime input: 7 | 1 |
+| Prime input: 8 | 0 |
+| Prime input: 1 | 0 |
+| Prime input: -5 | 0 |
+| Modulus: 17 % 5 | 2 |
+| Modulus: -17 % 5 | -2 |
+| Sine: 30 degrees | 0.5 |
+| Cosine: 60 degrees | 0.5 |
+| Tangent: 45 degrees | 1.0 |
+| Tangent: 90 degrees | undefined |
+| Divisor: 0 | Validation error |
+| Prime HARD (2 x 3) | 6 marks |
+| Trig NORMAL (3 x 2) | 6 marks |
+| Trig EASY (3 x 1) | 3 marks |
+| All answers correct | Maximum score of that game |
+| Incorrect answers | Marks of those questions not awarded |
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `NoClassDefFoundError: javax/servlet/...` or JSTL error | Use Tomcat 10 or newer. This project uses `jakarta.*` and is built for Tomcat 11. |
+| `Address localhost:8080 is already in use` | Stop the old Tomcat (red Stop button), or change the HTTP port in the Tomcat run configuration. |
+| `Access denied for user 'root'@'localhost'` | Set the correct MySQL password in `ScoreDAO.java` and restart Tomcat. |
+| `Unknown database 'math_whiz_db'` | Run `database/math_whiz_db.sql` first. |
+| `MySQL driver not found` | Reload Maven (elephant icon in the Maven tab). |
+| `Communications link failure` | Start the MySQL service. |
+
 
 ## Application Screenshots
 
