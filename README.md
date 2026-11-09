@@ -943,4 +943,4 @@ public class MathServiceTest {
 <img width="1483" height="687" alt="Screenshot 2026-11-09 162515" src="https://github.com/user-attachments/assets/0829fa30-7ed0-4dfd-8760-b9df083cb6de" />
 
 ## GitHub Project Directory
-https://github.com/username/repository/tree/main/MathWhiz
+https://github.com/wasi4423/mathwhiz.git
